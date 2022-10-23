@@ -25,7 +25,25 @@ The below figure presents the workflow for performing sampling with (Hamiltonian
 
 # Using the code
 
+## Deep neural nets (DNNs)
 
+* go to src/dnns/
+* Include the Hamiltonian of the required probability distribution in the functions.py file. Some example probability distributions are already included. For information on the Hamiltonian of a probability distribution, see https://arxiv.org/pdf/1206.1901.pdf%20http://arxiv.org/abs/1206.1901.pdf.
+* Adjust the parameters in get_args.py
+* Run train_dnn.py to train the DNN model. The training data will be stored in a pkl file with the name the user specified in get_args.py. The trained DNN will be stored in a tar file with the name the user specified in get_args.py.
+* Then run, either dnn_lmc.py, dnn_hmc.py, dnn_nuts_online.py to, respectively, perform Langevin Monte Carlo, Hamiltonian Monte Carlo, and No-U-Turn Sampling with the trained DNN. Note that the user specified sampling parameters can be adjusted in these files.
+* For No-U-Turn Sampling, an online error monitoring scheme as described in (https://arxiv.org/abs/2208.06120) is used. To turn this feature off, set the `hnn_threshold` parameter in dnn_nuts_online.py to a large value like 1000.
+
+## Hamiltonian neural nets (HNNs)
+
+* go to src/hnns/
+* Include the Hamiltonian of the required probability distribution in the functions.py file. Some example probability distributions are already included. For information on the Hamiltonian of a probability distribution, see https://arxiv.org/pdf/1206.1901.pdf%20http://arxiv.org/abs/1206.1901.pdf.
+* Adjust the parameters in get_args.py
+* Run train_hnn.py to train the HNN model. The training data will be stored in a pkl file with the name the user specified in get_args.py. The trained HNN will be stored in a tar file with the name the user specified in get_args.py.
+* Then run, either hnn_lmc.py, hnn_hmc.py, hnn_nuts_online.py to, respectively, perform Langevin Monte Carlo, Hamiltonian Monte Carlo, and No-U-Turn Sampling with the trained HNN. Note that the user specified sampling parameters can be adjusted in these files.
+* For No-U-Turn Sampling, an online error monitoring scheme as described in (https://arxiv.org/abs/2208.06120) is used. To turn this feature off, set the `hnn_threshold` parameter in dnn_nuts_online.py to a large value like 1000.
+
+## Symplectic neural nets (sympnets)
 
 # Author information
 
@@ -33,7 +51,7 @@ Som L. Dhulipala
 
 Computational Scientist in Uncertainty Quantification
 
-Computational Mechanics and Materials
+Computational Mechanics and Materials department
 
 Email: Som.Dhulipala@inl.gov 
 

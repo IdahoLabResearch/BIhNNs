@@ -10,7 +10,7 @@ THIS_DIR = os.path.dirname(os.path.abspath(__file__))
 
 def get_args():
     parser = argparse.ArgumentParser(description=None)
-    parser.add_argument('--input_dim', default=4, type=int, help='dimensionality of input tensor')
+    parser.add_argument('--input_dim', default=4, type=int, help='dimensionality of input tensor (postion + momentum variables)')
     parser.add_argument('--num_samples', default=10, type=int, help='number of training samples simulated using Hamiltonian Monte Carlo')
     parser.add_argument('--len_sample', default=50, type=int, help='length of Hamiltonian trajectory for each training sample')
     parser.add_argument('--dist_name', default='nD_standard_Gaussian', type=str, help='name of the probability distribution function')
