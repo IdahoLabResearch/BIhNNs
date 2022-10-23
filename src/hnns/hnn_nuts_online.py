@@ -27,8 +27,8 @@ from data import dynamics_fn
 N = 1000 # number of samples
 burn = 100 # number of burn-in samples
 epsilon = 0.025 # step size
-N_lf = 20 # number of cool-down samples when DNN integration errors are high (see https://arxiv.org/abs/2208.06120)
-hnn_threshold = 10. # DNN integration error threshold (see https://arxiv.org/abs/2208.06120)
+N_lf = 20 # number of cool-down samples when HNN integration errors are high (see https://arxiv.org/abs/2208.06120)
+hnn_threshold = 10. # HNN integration error threshold (see https://arxiv.org/abs/2208.06120)
 lf_threshold = 1000. # Numerical gradient integration error threshold
 
 ##### Sampling code below #####
