@@ -22,15 +22,15 @@ args = get_args()
 
 ##### User-defined sampling parameters #####
 
-chains = 1
-y0 = np.zeros(args.input_dim)
-N = 1000
-L = 10
-burn = 100
-epsilon = 0.025
+chains = 1 # number of Markov chains
+N = 1000 # number of samples   
+L = 10 # length of each hamiltonian trajectory
+burn = 100 # burn-in samples
+epsilon = 0.025 # step for time integration
 
 ##### Sampling code below #####
 
+y0 = np.zeros(args.input_dim)
 def get_model(args, baseline):
     output_dim = args.input_dim
     nn_model = MLP(args.input_dim, args.hidden_dim, output_dim, args.nonlinearity)

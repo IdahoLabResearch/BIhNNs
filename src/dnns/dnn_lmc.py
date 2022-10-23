@@ -22,10 +22,10 @@ args = get_args()
 
 ##### User-defined sampling parameters #####
 
-chains = 1
-N = 10000
-epsilon = 0.025
-burn = 1000
+chains = 1 # number of Markov chains
+N = 10000 # number of samples
+epsilon = 0.025 # step size
+burn = 1000 # number of burn-in samples
 
 ##### Sampling code below #####
 

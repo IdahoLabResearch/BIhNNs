@@ -24,17 +24,16 @@ from data import dynamics_fn
 
 ##### User-defined sampling parameters #####
 
-chains = 1
-y0 = np.zeros(args.input_dim)
-N = 1000
-burn = 100
-epsilon = 0.025
-N_lf = 20
-hnn_threshold = 10.
-lf_threshold = 1000.
+N = 1000 # number of samples
+burn = 100 # number of burn-in samples
+epsilon = 0.025 # step size
+N_lf = 20 # number of cool-down samples when DNN integration errors are high (see https://arxiv.org/abs/2208.06120)
+hnn_threshold = 10. # DNN integration error threshold (see https://arxiv.org/abs/2208.06120)
+lf_threshold = 1000. # Numerical gradient integration error threshold
 
 ##### Sampling code below #####
 
+y0 = np.zeros(args.input_dim)
 def get_model(args, baseline):
     output_dim = args.input_dim
     nn_model = MLP(args.input_dim, args.hidden_dim, output_dim, args.nonlinearity)

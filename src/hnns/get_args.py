@@ -34,7 +34,7 @@ def get_args():
     parser.add_argument('--save_dir', default=THIS_DIR, type=str, help='where to save the trained model')
     parser.add_argument('--load_dir', default=THIS_DIR, type=str, help='where to load the training data from')
     parser.add_argument('--should_load', default=True, type=bool, help='should load training data?')
-    parser.add_argument('--load_file_name', default='nD_standard_Gaussian', type=str, help='should load training data?')
+    parser.add_argument('--load_file_name', default='nD_standard_Gaussian', type=str, help='if load training data, the file name (.pkl format)')
     parser.add_argument('--total_steps', default=5000, type=int, help='number of gradient steps')
 
     parser.add_argument('--hidden_dim', default=100, type=int, help='hidden dimension of mlp')
