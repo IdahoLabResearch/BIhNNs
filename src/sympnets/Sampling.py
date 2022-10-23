@@ -19,6 +19,9 @@ input_dim1 = int(args.input_dim/2)
 chains = 1
 y0 = np.zeros(int(input_dim1*2))
 burn = 0
+N_lf = 20 # number of cool-down samples when sympnet integration errors are high (see https://arxiv.org/abs/2208.06120)
+hnn_threshold = 10. # sympnet integration error threshold (see https://arxiv.org/abs/2208.06120)
+lf_threshold = 1000. # Numerical gradient integration error threshold
 
 def LMC(net, N):
     y0 = np.zeros(int(input_dim1*2))
@@ -157,9 +160,9 @@ def build_tree(net, theta, r, logu, v, j, epsilon, joint0, call_lf):
         tmp11 = np.append(hnn_ivp1[0,int(int(input_dim1*2)/2):int(input_dim1*2)].squeeze(), hnn_ivp1[0,0:int(int(input_dim1*2)/2)].squeeze())
         joint = func1(tmp11)
         # nprime = int(logu <= np.exp(-joint)) # int(logu <= (-joint)) #  int(logu < joint) # 
-        call_lf = call_lf or int((np.log(logu) + joint) > 10.) # int(logu <= np.exp(10. - joint)) # int((logu - 10.) < joint) # int((logu - 10.) < joint) #  int(tmp11 <= np.minimum(1,np.exp(joint0 - joint))) and int((logu - 1000.) < joint) 
+        call_lf = call_lf or int((np.log(logu) + joint) > hnn_threshold) # int(logu <= np.exp(10. - joint)) # int((logu - 10.) < joint) # int((logu - 10.) < joint) #  int(tmp11 <= np.minimum(1,np.exp(joint0 - joint))) and int((logu - 1000.) < joint) 
         monitor = np.log(logu) + joint # sprime
-        sprime = int((np.log(logu) + joint) <= 10.) # 
+        sprime = int((np.log(logu) + joint) <= hnn_threshold) # 
         
         if call_lf:
             t_span1 = [0,v * epsilon]
@@ -168,7 +171,7 @@ def build_tree(net, theta, r, logu, v, j, epsilon, joint0, call_lf):
             thetaprime = hnn_ivp1[0:int(int(input_dim1*2)/2), 1].reshape(int(int(input_dim1*2)/2))
             rprime = hnn_ivp1[int(int(input_dim1*2)/2):int(int(input_dim1*2)), 1].reshape(int(int(input_dim1*2)/2))
             joint = func1(hnn_ivp1[:,1])
-            sprime = int((np.log(logu) + joint) <= 1000.)
+            sprime = int((np.log(logu) + joint) <= lf_threshold)
         
         nprime = int(logu <= np.exp(-joint))
         thetaminus = thetaprime[:]
@@ -209,7 +212,7 @@ def NUTS(net, N):
     monitor_err = np.zeros(N)
     call_lf = 0
     counter_lf = 0
-    N_lf = 20
+    # N_lf = 20
     is_lf = np.zeros(N)
     HNN_accept = np.ones(N)
     traj_len = np.zeros(N)
