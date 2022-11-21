@@ -12,6 +12,7 @@ from scipy.stats import norm
 from scipy.stats import uniform
 import torch
 import autograd
+from tqdm import tqdm
 from get_args import get_args
 
 args = get_args()
@@ -32,13 +33,13 @@ def LMC(net, N):
         x_req = np.zeros((N,int(int(input_dim1*2)/2)))
         x_req[0,:] = y0[0:int(int(input_dim1*2)/2)]
         accept = np.zeros(N)
-        
+
         for ii in np.arange(0,int(int(input_dim1*2)/2),1):
             y0[ii] = 0.0
         for ii in np.arange(int(int(input_dim1*2)/2),int(int(input_dim1*2)),1):
             y0[ii] = norm(loc=0,scale=1).rvs()
         HNN_sto = np.zeros((int(input_dim1*2),1,N))
-        for ii in np.arange(0,N,1):
+        for ii in tqdm(range(N), desc="Sampling using LMC, chain "+str(ss)):
             y0 = np.concatenate((y0[int(int(input_dim1*2)/2):int(input_dim1*2)], y0[0:int(int(input_dim1*2)/2)]))
             hnn_ivp = net.predict(torch.tensor(y0.astype('float32')), steps, keepinitx=False, returnnp=True) # integrate_model(hnn_model, dt, y0)
             hnn_ivp = np.append(hnn_ivp[steps-1,int(int(input_dim1*2)/2):int(input_dim1*2)].squeeze(), hnn_ivp[steps-1,0:int(int(input_dim1*2)/2)].squeeze())
@@ -58,7 +59,6 @@ def LMC(net, N):
                 x_req[ii,:] = y0[0:int(int(input_dim1*2)/2)]
             for jj in np.arange(int(int(input_dim1*2)/2),int(input_dim1*2),1):
                 y0[jj] = norm(loc=0,scale=1).rvs()
-            print("Sample: "+str(ii)+" Chain: "+str(ss))
         hnn_accept[ss,:] = accept
         hnn_fin[ss,:,:] = x_req
     return hnn_fin.squeeze(), hnn_accept
@@ -71,13 +71,13 @@ def HMC(net, N, steps):
         x_req = np.zeros((N,int(int(input_dim1*2)/2)))
         x_req[0,:] = y0[0:int(int(input_dim1*2)/2)]
         accept = np.zeros(N)
-        
+
         for ii in np.arange(0,int(int(input_dim1*2)/2),1):
             y0[ii] = 0.0
         for ii in np.arange(int(int(input_dim1*2)/2),int(int(input_dim1*2)),1):
             y0[ii] = norm(loc=0,scale=1).rvs()
         HNN_sto = np.zeros((int(input_dim1*2),1,N))
-        for ii in np.arange(0,N,1):
+        for ii in tqdm(range(N), desc="Sampling using HMC, chain "+str(ss)):
             y0 = np.concatenate((y0[int(int(input_dim1*2)/2):int(input_dim1*2)], y0[0:int(int(input_dim1*2)/2)]))
             hnn_ivp = net.predict(torch.tensor(y0.astype('float32')), steps, keepinitx=False, returnnp=True) # integrate_model(hnn_model, dt, y0)
             hnn_ivp = np.append(hnn_ivp[steps-1,int(int(input_dim1*2)/2):int(input_dim1*2)].squeeze(), hnn_ivp[steps-1,0:int(int(input_dim1*2)/2)].squeeze())
@@ -97,7 +97,6 @@ def HMC(net, N, steps):
                 x_req[ii,:] = y0[0:int(int(input_dim1*2)/2)]
             for jj in np.arange(int(int(input_dim1*2)/2),int(input_dim1*2),1):
                 y0[jj] = norm(loc=0,scale=1).rvs()
-            print("Sample: "+str(ii)+" Chain: "+str(ss))
         hnn_accept[ss,:] = accept
         hnn_fin[ss,:,:] = x_req
     return hnn_fin.squeeze(), hnn_accept
@@ -112,7 +111,7 @@ def stop_criterion(thetaminus, thetaplus, rminus, rplus):
 
 def dynamics_fn(t, coords):
     # print("Here")
-    dcoords = autograd.grad(func1)(coords) # 
+    dcoords = autograd.grad(func1)(coords) #
     # dcoords = getgrad(coords)
     dic1 = np.split(dcoords,2*input_dim1)
     S = np.concatenate([dic1[input_dim1]])
@@ -159,11 +158,11 @@ def build_tree(net, theta, r, logu, v, j, epsilon, joint0, call_lf):
         rprime = hnn_ivp1[0, 0:input_dim1].reshape(input_dim1)
         tmp11 = np.append(hnn_ivp1[0,int(int(input_dim1*2)/2):int(input_dim1*2)].squeeze(), hnn_ivp1[0,0:int(int(input_dim1*2)/2)].squeeze())
         joint = func1(tmp11)
-        # nprime = int(logu <= np.exp(-joint)) # int(logu <= (-joint)) #  int(logu < joint) # 
-        call_lf = call_lf or int((np.log(logu) + joint) > hnn_threshold) # int(logu <= np.exp(10. - joint)) # int((logu - 10.) < joint) # int((logu - 10.) < joint) #  int(tmp11 <= np.minimum(1,np.exp(joint0 - joint))) and int((logu - 1000.) < joint) 
+        # nprime = int(logu <= np.exp(-joint)) # int(logu <= (-joint)) #  int(logu < joint) #
+        call_lf = call_lf or int((np.log(logu) + joint) > hnn_threshold) # int(logu <= np.exp(10. - joint)) # int((logu - 10.) < joint) # int((logu - 10.) < joint) #  int(tmp11 <= np.minimum(1,np.exp(joint0 - joint))) and int((logu - 1000.) < joint)
         monitor = np.log(logu) + joint # sprime
-        sprime = int((np.log(logu) + joint) <= hnn_threshold) # 
-        
+        sprime = int((np.log(logu) + joint) <= hnn_threshold) #
+
         if call_lf:
             t_span1 = [0,v * epsilon]
             y1 = np.concatenate((theta, r), axis=0)
@@ -172,7 +171,7 @@ def build_tree(net, theta, r, logu, v, j, epsilon, joint0, call_lf):
             rprime = hnn_ivp1[int(int(input_dim1*2)/2):int(int(input_dim1*2)), 1].reshape(int(int(input_dim1*2)/2))
             joint = func1(hnn_ivp1[:,1])
             sprime = int((np.log(logu) + joint) <= lf_threshold)
-        
+
         nprime = int(logu <= np.exp(-joint))
         thetaminus = thetaprime[:]
         thetaplus = thetaprime[:]
@@ -219,8 +218,7 @@ def NUTS(net, N):
     alpha_req = np.zeros(N)
     H_store = np.zeros(N)
     epsilon = 0.025
-    for m in np.arange(1, N, 1):
-        print(m)
+    for m in tqdm(range(N), desc="Sampling using NUTS"):
         for ii in np.arange(int(int(input_dim1*2)/2),int(int(input_dim1*2)),1):
             y0[ii] = norm(loc=0,scale=1).rvs() #  3.0 # -0.87658921 #
         # Resample momenta.
@@ -279,7 +277,7 @@ def NUTS(net, N):
             # Increment depth.
             j += 1
             monitor_err[m] = monitor
-            
+
         is_lf[m] = call_lf
         traj_len[m] = j
         alpha_req[m] = alpha

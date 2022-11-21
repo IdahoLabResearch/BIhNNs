@@ -13,37 +13,46 @@ from Sampling import LMC
 from Sampling import HMC
 from Sampling import NUTS
 import tensorflow as tf
+import torch
+import random
 import tensorflow_probability as tfp
 from get_args import get_args
 args = get_args()
+
+# We fix the seeds to ensure that the results can be reproduced
+tf.random.set_seed(11)
+torch.manual_seed(13)
+np.random.seed(17)
+random.seed(19)
 
 ## Load data and train SympNet (LA or G)
 
 path = '{}/{}.pkl'.format(args.load_dir, args.load_file_name)
 data_raw = from_pickle(path)
+
 print("Successfully loaded data")
 d1 = data_raw['coords']
-xt = np.zeros((int(args.len_sample**2 * args.num_samples), args.input_dim))
-yt = np.zeros((int(args.len_sample**2 * args.num_samples), args.input_dim))
-rn = np.arange(0,args.num_samples+1) + np.arange(0,int(args.len_sample**2 * args.num_samples)+1,int(args.len_sample**2))
+xt = np.zeros((int(args.len_sample * args.num_samples), args.input_dim))
+yt = np.zeros((int(args.len_sample * args.num_samples), args.input_dim))
+rn = np.arange(0,args.num_samples+1) + np.arange(0,int(args.len_sample * args.num_samples)+1,int(args.len_sample))
 for ii in range(args.num_samples):
     for jj in range(int(args.input_dim/2)):
-        xt[int(args.len_sample**2)*ii:int(args.len_sample**2)*(ii+1),int(args.input_dim/2)+jj] = d1[rn[ii]:rn[ii+1]-1,jj]
-        yt[int(args.len_sample**2)*ii:int(args.len_sample**2)*(ii+1),int(args.input_dim/2)+jj] = d1[rn[ii]+1:rn[ii+1],jj]
+        xt[int(args.len_sample)*ii:int(args.len_sample)*(ii+1),int(args.input_dim/2)+jj] = d1[rn[ii]:rn[ii+1]-1,jj]
+        yt[int(args.len_sample)*ii:int(args.len_sample)*(ii+1),int(args.input_dim/2)+jj] = d1[rn[ii]+1:rn[ii+1],jj]
     for jj in range(int(args.input_dim/2)):
-        xt[int(args.len_sample**2)*ii:int(args.len_sample**2)*(ii+1),jj] = d1[rn[ii]:rn[ii+1]-1,int(args.input_dim/2)+jj]
-        yt[int(args.len_sample**2)*ii:int(args.len_sample**2)*(ii+1),jj] = d1[rn[ii]+1:rn[ii+1],int(args.input_dim/2)+jj]
+        xt[int(args.len_sample)*ii:int(args.len_sample)*(ii+1),jj] = d1[rn[ii]:rn[ii+1]-1,int(args.input_dim/2)+jj]
+        yt[int(args.len_sample)*ii:int(args.len_sample)*(ii+1),jj] = d1[rn[ii]+1:rn[ii+1],int(args.input_dim/2)+jj]
 
 class PDData(ln.Data):
     def __init__(self, add_h=False):
         super(PDData, self).__init__()
         self.h = args.step_size
         self.__init_data()
-        
+
     @property
     def dim(self):
         return args.input_dim
-    
+
     def __init_data(self):
             self.X_train = xt
             self.y_train = yt
@@ -90,19 +99,32 @@ ln.Brain.Output()
 
 ## Sampling parameters
 
-req_samples = 25000
+req_samples = 2500
 hmc_len = 500
-burn_in = 1000
+burn_in = 500
 
 ## Sampling
 
 # Langevin Monte Carlo
 samples, lmc_accept = LMC(net,req_samples)
+
+## Compute effective sample size
+hnn_tf = tf.convert_to_tensor(samples[burn_in:req_samples,:])
+ess_hnn = np.array(tfp.mcmc.effective_sample_size(hnn_tf))
+print("Effective sample size with LMC:", ess_hnn)
+
 # Hamiltonian Monte Carlo
-samples, hmc_accept = HMC(net,req_samples,hmc_len = 500)
+samples, hmc_accept = HMC(net,req_samples,steps = 500)
+
+## Compute effective sample size
+hnn_tf = tf.convert_to_tensor(samples[burn_in:req_samples,:])
+ess_hnn = np.array(tfp.mcmc.effective_sample_size(hnn_tf))
+print("Effective sample size with HMC:", ess_hnn)
+
 # No-U-Turn Sampling with online error monitoring
 samples, nuts_err, nuts_ind, nuts_traj = NUTS(net,req_samples)
 
 ## Compute effective sample size
 hnn_tf = tf.convert_to_tensor(samples[burn_in:req_samples,:])
 ess_hnn = np.array(tfp.mcmc.effective_sample_size(hnn_tf))
+print("Effective sample size with NUTS:", ess_hnn)
