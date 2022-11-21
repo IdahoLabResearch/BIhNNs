@@ -254,6 +254,7 @@ def NUTS(net, N):
             call_lf = 0
             counter_lf = 0
 
+        r_sto = np.zeros(int(int(input_dim1*2)/2))
         while (s == 1):
             # Choose a direction. -1 = backwards, 1 = forwards.
             v = int(2 * (np.random.uniform() < 0.5) - 1)

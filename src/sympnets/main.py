@@ -99,9 +99,9 @@ ln.Brain.Output()
 
 ## Sampling parameters
 
-req_samples = 2500
+req_samples = 25000
 hmc_len = 500
-burn_in = 500
+burn_in = 1000
 
 ## Sampling
 
