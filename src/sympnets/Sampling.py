@@ -7,6 +7,7 @@
 # Langevin Monte Carlo, Hamiltonian Monte Carlo, and NUTS with online error monitoring with SympNets
 
 import numpy as np
+import copy
 from functions import func1
 from scipy.stats import norm
 from scipy.stats import uniform
@@ -215,6 +216,11 @@ def NUTS(net, N):
     is_lf = np.zeros(N)
     HNN_accept = np.ones(N)
     traj_len = np.zeros(N)
+    # We will collect if the trees are built in both directions for a sample to make sure we can count the
+    # total number if gradient evaluations at the end. The number of gradient evaluations is (N+2) if the tree
+    # is built in both directions and (N+1) if it is built in only one direction. In this case N is the taken
+    # leapfrog steps which is pow(2,d) where d is the depth of the tree.
+    both_directions = np.zeros(N)
     alpha_req = np.zeros(N)
     H_store = np.zeros(N)
     epsilon = 0.025
@@ -255,9 +261,15 @@ def NUTS(net, N):
             counter_lf = 0
 
         r_sto = np.zeros(int(int(input_dim1*2)/2))
+
+        v_old = 0
         while (s == 1):
             # Choose a direction. -1 = backwards, 1 = forwards.
             v = int(2 * (np.random.uniform() < 0.5) - 1)
+            if (v_old * v < 0.0):
+                both_directions[m] = 1.0
+
+            v_old = copy.copy(v)
 
             # Double the size of the tree.
             if (v == -1):
@@ -285,4 +297,4 @@ def NUTS(net, N):
         y0[0:int(int(input_dim1*2)/2)] = samples[m, :]
         H_store[m] = func1(np.concatenate((samples[m, :], r_sto), axis=0))
 
-    return samples, monitor_err, is_lf, traj_len
+    return samples, monitor_err, is_lf, traj_len, both_directions

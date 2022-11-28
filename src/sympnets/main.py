@@ -32,6 +32,9 @@ data_raw = from_pickle(path)
 
 print("Successfully loaded data")
 d1 = data_raw['coords']
+
+# We flip the (q,p) blocks because SympNets expect the (p,q) ordering, this will be corrected within
+# the samplers
 xt = np.zeros((int(args.len_sample * args.num_samples), args.input_dim))
 yt = np.zeros((int(args.len_sample * args.num_samples), args.input_dim))
 rn = np.arange(0,args.num_samples+1) + np.arange(0,int(args.len_sample * args.num_samples)+1,int(args.len_sample))
@@ -74,10 +77,14 @@ print_every = args.print_every
 add_h = False
 criterion = 'MSE'
 data = PDData()
-if net_type == 'LA':
-    net = ln.nn.LASympNet(data.dim, LAlayers, LAsublayers, activation)
-elif net_type == 'G':
-    net = ln.nn.GSympNet(data.dim, Glayers, Gwidth, activation)
+net = None
+if args.read_net:
+    net = torch.load(args.net_folder+"/model_best.pkl")
+else:
+    if net_type == 'LA':
+        net = ln.nn.LASympNet(data.dim, LAlayers, LAsublayers, activation)
+    elif net_type == 'G':
+        net = ln.nn.GSympNet(data.dim, Glayers, Gwidth, activation)
 args1 = {
     'data': data,
     'net': net,
@@ -93,38 +100,73 @@ args1 = {
     'device': device
 }
 ln.Brain.Init(**args1)
-ln.Brain.Run()
-ln.Brain.Restore()
-ln.Brain.Output()
+
+if args.train_net:
+    ln.Brain.Run()
+    ln.Brain.Restore()
+    ln.Brain.Output()
 
 ## Sampling parameters
 
-req_samples = 25000
+req_samples_hmc = 25000
+req_samples_nuts = 25000
+req_samples_lmc = 1000000
+
 hmc_len = 500
-burn_in = 1000
+burn_in = 100
 
 ## Sampling
 
 # Langevin Monte Carlo
-samples, lmc_accept = LMC(net,req_samples)
+lmc_samples, lmc_accept = LMC(net,req_samples_lmc)
 
 ## Compute effective sample size
-hnn_tf = tf.convert_to_tensor(samples[burn_in:req_samples,:])
+hnn_tf = tf.convert_to_tensor(lmc_samples[burn_in:req_samples,:])
 ess_hnn = np.array(tfp.mcmc.effective_sample_size(hnn_tf))
-print("Effective sample size with LMC:", ess_hnn)
+## We need N+1 gradient evaluations in N leapfrog steps, here we have only one step so
+## we need 2 evaluations (hence the factor 2)
+print("ESS with LMC:", ess_hnn)
+print("ESS/(number of gradient evaluation) with LMC:", ess_hnn/(2*(req_samples-burn_in)))
+
+if args.plot_samples:
+    fig, ax = plt.subplots(figsize =(10, 7))
+    ax.scatter(lmc_samples[:,0], lmc_samples[:,1], marker='+')
+    plt.savefig('lmc.pdf')
 
 # Hamiltonian Monte Carlo
-samples, hmc_accept = HMC(net,req_samples,steps = 500)
+hmc_samples, hmc_accept = HMC(net,req_samples_hmc,steps = hmc_len)
 
 ## Compute effective sample size
-hnn_tf = tf.convert_to_tensor(samples[burn_in:req_samples,:])
+hnn_tf = tf.convert_to_tensor(hmc_samples[burn_in:req_samples,:])
 ess_hnn = np.array(tfp.mcmc.effective_sample_size(hnn_tf))
-print("Effective sample size with HMC:", ess_hnn)
+## We need N+1 gradient evaluations in N leapfrog steps
+print("ESS with HMC:", ess_hnn)
+print("ESS/(number of gradient evaluation) with HMC:", ess_hnn/((req_samples-burn_in)*(hmc_len+1)))
+
+if args.plot_samples:
+    fig, ax = plt.subplots(figsize =(10, 7))
+    ax.scatter(hmc_samples[:,0], hmc_samples[:,1], marker='+')
+    plt.savefig('hmc.pdf')
 
 # No-U-Turn Sampling with online error monitoring
-samples, nuts_err, nuts_ind, nuts_traj = NUTS(net,req_samples)
+nuts_samples, nuts_err, nuts_ind, nuts_traj, both_directions = NUTS(net,req_samples_nuts)
 
 ## Compute effective sample size
-hnn_tf = tf.convert_to_tensor(samples[burn_in:req_samples,:])
+hnn_tf = tf.convert_to_tensor(nuts_samples[burn_in:req_samples,:])
 ess_hnn = np.array(tfp.mcmc.effective_sample_size(hnn_tf))
-print("Effective sample size with NUTS:", ess_hnn)
+## We need N+1 gradient evaluations in N leapfrog steps if we go in one direction only,
+## but if the tree builds in both directions the number of gradient evaluations is N+2
+num_grad_eval = 0
+for depth_index in range(burn_in, len(nuts_traj)):
+    if both_directions[depth_index]:
+        num_grad_eval += pow(2,nuts_traj[depth_index]) + 2
+    else:
+        num_grad_eval += pow(2,nuts_traj[depth_index]) + 1
+
+print("ESS with NUTS:", ess_hnn)
+print("ESS/(number of gradient evaluation) with NUTS:", ess_hnn/num_grad_eval)
+
+if args.plot_samples:
+    fig, ax = plt.subplots(figsize =(10, 7))
+    ax.scatter(nuts_samples[:,0], nuts_samples[:,1], marker='+')
+    plt.savefig('nuts.pdf')
