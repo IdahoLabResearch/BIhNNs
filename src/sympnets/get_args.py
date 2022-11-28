@@ -8,6 +8,17 @@ import torch, argparse
 import os
 THIS_DIR = os.path.dirname(os.path.abspath(__file__))
 
+
+def str2bool(v):
+    if isinstance(v, bool):
+        return v
+    if v.lower() in ('yes', 'true', 't', 'y', '1'):
+        return True
+    elif v.lower() in ('no', 'false', 'f', 'n', '0'):
+        return False
+    else:
+        raise argparse.ArgumentTypeError('Boolean value expected.')
+
 def get_args():
     parser = argparse.ArgumentParser(description=None)
     parser.add_argument('--input_dim', default=4, type=int, help='dimensionality of input tensor (postion + momentum variables)')
@@ -29,10 +40,10 @@ def get_args():
     parser.add_argument('--test_fraction', default=0., type=float, help='fraction of testing samples')
     parser.add_argument('--step_size', default=0.025, type=int, help='step size for time integration')
     parser.add_argument('--print_every', default=200, type=int, help='number of gradient steps between prints')
-    parser.add_argument('--read_net', default=False, type=bool, help='If we want to read the neural net from a pkl file')
-    parser.add_argument('--train_net', default=True, type=bool, help='If we want to train the neural network')
+    parser.add_argument('--read_net', type=str2bool, nargs='?', const=True, default=False, help='If we want to read the neural net from a pkl file')
+    parser.add_argument('--train_net', type=str2bool, nargs='?', const=True, default=True, help='If we want to train the neural network')
     parser.add_argument('--net_folder', default='', type=str, help='The directory where the model_best.pkl file is located')
-    parser.add_argument('--plot_samples', default=True, type=bool, help='If we want to plot the samples from different sampling approaches')
+    parser.add_argument('--plot_samples', type=str2bool, nargs='?', const=True, default=True, help='If we want to plot the samples from different sampling approaches')
 
 
     parser.set_defaults(feature=True)

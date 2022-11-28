@@ -126,7 +126,7 @@ ess_hnn = np.array(tfp.mcmc.effective_sample_size(hnn_tf))
 ## We need N+1 gradient evaluations in N leapfrog steps, here we have only one step so
 ## we need 2 evaluations (hence the factor 2)
 print("ESS with LMC:", ess_hnn)
-print("ESS/(number of gradient evaluation) with LMC:", ess_hnn/(2*(req_samples-burn_in)))
+print("ESS/(number of gradient evaluation) with LMC:", ess_hnn/(2*(req_samples_lmc-burn_in)))
 
 if args.plot_samples:
     fig, ax = plt.subplots(figsize =(10, 7))
@@ -141,7 +141,7 @@ hnn_tf = tf.convert_to_tensor(hmc_samples[burn_in:req_samples,:])
 ess_hnn = np.array(tfp.mcmc.effective_sample_size(hnn_tf))
 ## We need N+1 gradient evaluations in N leapfrog steps
 print("ESS with HMC:", ess_hnn)
-print("ESS/(number of gradient evaluation) with HMC:", ess_hnn/((req_samples-burn_in)*(hmc_len+1)))
+print("ESS/(number of gradient evaluation) with HMC:", ess_hnn/((req_samples_hmc-burn_in)*(hmc_len+1)))
 
 if args.plot_samples:
     fig, ax = plt.subplots(figsize =(10, 7))
