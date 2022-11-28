@@ -121,7 +121,7 @@ burn_in = 100
 lmc_samples, lmc_accept = LMC(net,req_samples_lmc)
 
 ## Compute effective sample size
-hnn_tf = tf.convert_to_tensor(lmc_samples[burn_in:req_samples,:])
+hnn_tf = tf.convert_to_tensor(lmc_samples[burn_in:req_samples_lmc,:])
 ess_hnn = np.array(tfp.mcmc.effective_sample_size(hnn_tf))
 ## We need N+1 gradient evaluations in N leapfrog steps, here we have only one step so
 ## we need 2 evaluations (hence the factor 2)
@@ -137,7 +137,7 @@ if args.plot_samples:
 hmc_samples, hmc_accept = HMC(net,req_samples_hmc,steps = hmc_len)
 
 ## Compute effective sample size
-hnn_tf = tf.convert_to_tensor(hmc_samples[burn_in:req_samples,:])
+hnn_tf = tf.convert_to_tensor(hmc_samples[burn_in:req_samples_hmc,:])
 ess_hnn = np.array(tfp.mcmc.effective_sample_size(hnn_tf))
 ## We need N+1 gradient evaluations in N leapfrog steps
 print("ESS with HMC:", ess_hnn)
@@ -152,7 +152,7 @@ if args.plot_samples:
 nuts_samples, nuts_err, nuts_ind, nuts_traj, both_directions = NUTS(net,req_samples_nuts)
 
 ## Compute effective sample size
-hnn_tf = tf.convert_to_tensor(nuts_samples[burn_in:req_samples,:])
+hnn_tf = tf.convert_to_tensor(nuts_samples[burn_in:req_samples_nuts,:])
 ess_hnn = np.array(tfp.mcmc.effective_sample_size(hnn_tf))
 ## We need N+1 gradient evaluations in N leapfrog steps if we go in one direction only,
 ## but if the tree builds in both directions the number of gradient evaluations is N+2
