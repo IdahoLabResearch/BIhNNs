@@ -109,8 +109,8 @@ if args.train_net:
 ## Sampling parameters
 
 req_samples_hmc = 25000
-req_samples_nuts = 25000
-req_samples_lmc = 1000000
+req_samples_nuts = 100000
+req_samples_lmc = 500000
 
 hmc_len = 500
 burn_in = 100
@@ -130,7 +130,8 @@ print("ESS/(number of gradient evaluation) with LMC:", ess_hnn/(2*(req_samples_l
 
 if args.plot_samples:
     fig, ax = plt.subplots(figsize =(10, 7))
-    ax.scatter(lmc_samples[:,0], lmc_samples[:,1], marker='+')
+    markevery = max(int(req_samples_lmc/15000),1)
+    ax.scatter(lmc_samples[::markevery,0], lmc_samples[::markevery,1], marker='+')
     plt.savefig('lmc.pdf')
 
 # Hamiltonian Monte Carlo
@@ -145,7 +146,8 @@ print("ESS/(number of gradient evaluation) with HMC:", ess_hnn/((req_samples_hmc
 
 if args.plot_samples:
     fig, ax = plt.subplots(figsize =(10, 7))
-    ax.scatter(hmc_samples[:,0], hmc_samples[:,1], marker='+')
+    markevery = max(int(req_samples_hmc/15000),1)
+    ax.scatter(hmc_samples[::markevery,0], hmc_samples[::markevery,1], marker='+')
     plt.savefig('hmc.pdf')
 
 # No-U-Turn Sampling with online error monitoring
@@ -168,5 +170,6 @@ print("ESS/(number of gradient evaluation) with NUTS:", ess_hnn/num_grad_eval)
 
 if args.plot_samples:
     fig, ax = plt.subplots(figsize =(10, 7))
-    ax.scatter(nuts_samples[:,0], nuts_samples[:,1], marker='+')
+    markevery = max(int(req_samples_nuts/15000),1)
+    ax.scatter(nuts_samples[::markevery,0], nuts_samples[::markevery,1], marker='+')
     plt.savefig('nuts.pdf')
