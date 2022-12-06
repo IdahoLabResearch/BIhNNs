@@ -19,7 +19,6 @@ from get_args import get_args
 args = get_args()
 input_dim1 = int(args.input_dim/2)
 chains = 1
-y0 = np.ones(int(input_dim1*2))
 burn = 0
 N_lf = 20 # number of cool-down samples when sympnet integration errors are high (see https://arxiv.org/abs/2208.06120)
 hnn_threshold = 10. # sympnet integration error threshold (see https://arxiv.org/abs/2208.06120)
@@ -204,9 +203,9 @@ def build_tree(net, theta, r, logu, v, j, epsilon, joint0, call_lf):
     return thetaminus, rminus, thetaplus, rplus, thetaprime, rprime, nprime, sprime, alphaprime, nalphaprime, monitor, call_lf
 
 def NUTS(net, N):
+    y0 = np.zeros(int(input_dim1*2))
     D = int(int(input_dim1*2)/2)
     theta0 = np.ones(D)
-    D = len(theta0)
     samples = np.empty((N, D), dtype=float)
     samples[0, :] = theta0
     monitor_err = np.zeros(N)

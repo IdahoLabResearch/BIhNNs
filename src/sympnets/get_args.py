@@ -33,7 +33,7 @@ def get_args():
     parser.add_argument('--LAnum_sub_layers', default=10, type=int, help='sub hidden dimension of LA-SympNet')
     parser.add_argument('--LAnum_layers', default=10, type=int, help='hidden dimension of LA-SympNet')
 
-    parser.add_argument('--total_steps', default=40000, type=int, help='number of gradient steps')
+    parser.add_argument('--total_steps', default=100000, type=int, help='number of gradient steps')
     parser.add_argument('--learn_rate', default=5e-4, type=float, help='learning rate')
     parser.add_argument('--batch_size', default=20000, type=int, help='batch_size')
     parser.add_argument('--nonlinearity', default='tanh', type=str, help='neural net nonlinearity')

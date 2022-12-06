@@ -16,14 +16,18 @@ import tensorflow as tf
 import torch
 import random
 import tensorflow_probability as tfp
+import seaborn as sns
+import pandas as pd
 from get_args import get_args
 args = get_args()
 
+seed = 11
+
 # We fix the seeds to ensure that the results can be reproduced
-tf.random.set_seed(11)
-torch.manual_seed(13)
-np.random.seed(17)
-random.seed(19)
+tf.random.set_seed(seed+8)
+torch.manual_seed(seed+6)
+np.random.seed(seed+2)
+random.seed(seed)
 
 ## Load data and train SympNet (LA or G)
 
@@ -109,16 +113,19 @@ if args.train_net:
 ## Sampling parameters
 
 req_samples_hmc = 25000
-req_samples_nuts = 100000
-req_samples_lmc = 500000
+req_samples_nuts = 200000
+req_samples_lmc = 1000000
 
 hmc_len = 500
 burn_in = 100
+
+num_samples_to_plot = 25000
 
 ## Sampling
 
 # Langevin Monte Carlo
 lmc_samples, lmc_accept = LMC(net,req_samples_lmc)
+np.savetxt('lmc.csv', lmc_samples, delimiter=',')
 
 ## Compute effective sample size
 hnn_tf = tf.convert_to_tensor(lmc_samples[burn_in:req_samples_lmc,:])
@@ -129,13 +136,15 @@ print("ESS with LMC:", ess_hnn)
 print("ESS/(number of gradient evaluation) with LMC:", ess_hnn/(2*(req_samples_lmc-burn_in)))
 
 if args.plot_samples:
-    fig, ax = plt.subplots(figsize =(10, 7))
-    markevery = max(int(req_samples_lmc/15000),1)
-    ax.scatter(lmc_samples[::markevery,0], lmc_samples[::markevery,1], marker='+')
+    index = np.random.choice(lmc_samples.shape[0], min(num_samples_to_plot,req_samples_lmc), replace=False)
+    selected_samples = lmc_samples[index]
+    df = pd.DataFrame(selected_samples, columns = ["Parameter "+str(i) for i in range(len(selected_samples[0]))])
+    sns.pairplot(df, diag_kind = 'kde', plot_kws=dict(marker="+", s=4, linewidth=0.15))
     plt.savefig('lmc.pdf')
 
 # Hamiltonian Monte Carlo
 hmc_samples, hmc_accept = HMC(net,req_samples_hmc,steps = hmc_len)
+np.savetxt('hmc.csv', hmc_samples, delimiter=',')
 
 ## Compute effective sample size
 hnn_tf = tf.convert_to_tensor(hmc_samples[burn_in:req_samples_hmc,:])
@@ -145,31 +154,34 @@ print("ESS with HMC:", ess_hnn)
 print("ESS/(number of gradient evaluation) with HMC:", ess_hnn/((req_samples_hmc-burn_in)*(hmc_len+1)))
 
 if args.plot_samples:
-    fig, ax = plt.subplots(figsize =(10, 7))
-    markevery = max(int(req_samples_hmc/15000),1)
-    ax.scatter(hmc_samples[::markevery,0], hmc_samples[::markevery,1], marker='+')
+    index = np.random.choice(hmc_samples.shape[0], min(num_samples_to_plot,req_samples_hmc), replace=False)
+    selected_samples = hmc_samples[index]
+    df = pd.DataFrame(selected_samples, columns = ["Parameter "+str(i) for i in range(len(selected_samples[0]))])
+    sns.pairplot(df, diag_kind = 'kde', plot_kws=dict(marker="+", s=4, linewidth=0.15))
     plt.savefig('hmc.pdf')
 
-# No-U-Turn Sampling with online error monitoring
-nuts_samples, nuts_err, nuts_ind, nuts_traj, both_directions = NUTS(net,req_samples_nuts)
+# # No-U-Turn Sampling with online error monitoring
+# nuts_samples, nuts_err, nuts_ind, nuts_traj, both_directions = NUTS(net,req_samples_nuts)
+# np.savetxt('nuts.csv', nuts_samples, delimiter=',')
 
-## Compute effective sample size
-hnn_tf = tf.convert_to_tensor(nuts_samples[burn_in:req_samples_nuts,:])
-ess_hnn = np.array(tfp.mcmc.effective_sample_size(hnn_tf))
-## We need N+1 gradient evaluations in N leapfrog steps if we go in one direction only,
-## but if the tree builds in both directions the number of gradient evaluations is N+2
-num_grad_eval = 0
-for depth_index in range(burn_in, len(nuts_traj)):
-    if both_directions[depth_index]:
-        num_grad_eval += pow(2,nuts_traj[depth_index]) + 2
-    else:
-        num_grad_eval += pow(2,nuts_traj[depth_index]) + 1
+# ## Compute effective sample size
+# hnn_tf = tf.convert_to_tensor(nuts_samples[burn_in:req_samples_nuts,:])
+# ess_hnn = np.array(tfp.mcmc.effective_sample_size(hnn_tf))
+# ## We need N+1 gradient evaluations in N leapfrog steps if we go in one direction only,
+# ## but if the tree builds in both directions the number of gradient evaluations is N+2
+# num_grad_eval = 0
+# for depth_index in range(burn_in, len(nuts_traj)):
+#     if both_directions[depth_index]:
+#         num_grad_eval += pow(2,nuts_traj[depth_index]) + 2
+#     else:
+#         num_grad_eval += pow(2,nuts_traj[depth_index]) + 1
 
-print("ESS with NUTS:", ess_hnn)
-print("ESS/(number of gradient evaluation) with NUTS:", ess_hnn/num_grad_eval)
+# print("ESS with NUTS:", ess_hnn)
+# print("ESS/(number of gradient evaluation) with NUTS:", ess_hnn/num_grad_eval)
 
-if args.plot_samples:
-    fig, ax = plt.subplots(figsize =(10, 7))
-    markevery = max(int(req_samples_nuts/15000),1)
-    ax.scatter(nuts_samples[::markevery,0], nuts_samples[::markevery,1], marker='+')
-    plt.savefig('nuts.pdf')
+# if args.plot_samples:
+#     index = np.random.choice(nuts_samples.shape[0], min(num_samples_to_plot,req_samples_nuts), replace=False)
+#     selected_samples = nuts_samples[index]
+#     df = pd.DataFrame(selected_samples, columns = ["Parameter "+str(i) for i in range(len(selected_samples[0]))])
+#     sns.pairplot(df, diag_kind = 'kde', plot_kws=dict(marker="+", s=4, linewidth=0.15))
+#     plt.savefig('nuts.pdf')
