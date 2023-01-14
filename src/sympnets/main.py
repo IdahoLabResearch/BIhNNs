@@ -13,37 +13,53 @@ from Sampling import LMC
 from Sampling import HMC
 from Sampling import NUTS
 import tensorflow as tf
+import torch
+import random
 import tensorflow_probability as tfp
+import seaborn as sns
+import pandas as pd
 from get_args import get_args
 args = get_args()
+
+seed = 11
+
+# We fix the seeds to ensure that the results can be reproduced
+tf.random.set_seed(seed+8)
+torch.manual_seed(seed+6)
+np.random.seed(seed+2)
+random.seed(seed)
 
 ## Load data and train SympNet (LA or G)
 
 path = '{}/{}.pkl'.format(args.load_dir, args.load_file_name)
 data_raw = from_pickle(path)
+
 print("Successfully loaded data")
 d1 = data_raw['coords']
-xt = np.zeros((int(args.len_sample**2 * args.num_samples), args.input_dim))
-yt = np.zeros((int(args.len_sample**2 * args.num_samples), args.input_dim))
-rn = np.arange(0,args.num_samples+1) + np.arange(0,int(args.len_sample**2 * args.num_samples)+1,int(args.len_sample**2))
+
+# We flip the (q,p) blocks because SympNets expect the (p,q) ordering, this will be corrected within
+# the samplers
+xt = np.zeros((int(args.len_sample * args.num_samples), args.input_dim))
+yt = np.zeros((int(args.len_sample * args.num_samples), args.input_dim))
+rn = np.arange(0,args.num_samples+1) + np.arange(0,int(args.len_sample * args.num_samples)+1,int(args.len_sample))
 for ii in range(args.num_samples):
     for jj in range(int(args.input_dim/2)):
-        xt[int(args.len_sample**2)*ii:int(args.len_sample**2)*(ii+1),int(args.input_dim/2)+jj] = d1[rn[ii]:rn[ii+1]-1,jj]
-        yt[int(args.len_sample**2)*ii:int(args.len_sample**2)*(ii+1),int(args.input_dim/2)+jj] = d1[rn[ii]+1:rn[ii+1],jj]
+        xt[int(args.len_sample)*ii:int(args.len_sample)*(ii+1),int(args.input_dim/2)+jj] = d1[rn[ii]:rn[ii+1]-1,jj]
+        yt[int(args.len_sample)*ii:int(args.len_sample)*(ii+1),int(args.input_dim/2)+jj] = d1[rn[ii]+1:rn[ii+1],jj]
     for jj in range(int(args.input_dim/2)):
-        xt[int(args.len_sample**2)*ii:int(args.len_sample**2)*(ii+1),jj] = d1[rn[ii]:rn[ii+1]-1,int(args.input_dim/2)+jj]
-        yt[int(args.len_sample**2)*ii:int(args.len_sample**2)*(ii+1),jj] = d1[rn[ii]+1:rn[ii+1],int(args.input_dim/2)+jj]
+        xt[int(args.len_sample)*ii:int(args.len_sample)*(ii+1),jj] = d1[rn[ii]:rn[ii+1]-1,int(args.input_dim/2)+jj]
+        yt[int(args.len_sample)*ii:int(args.len_sample)*(ii+1),jj] = d1[rn[ii]+1:rn[ii+1],int(args.input_dim/2)+jj]
 
 class PDData(ln.Data):
     def __init__(self, add_h=False):
         super(PDData, self).__init__()
         self.h = args.step_size
         self.__init_data()
-        
+
     @property
     def dim(self):
         return args.input_dim
-    
+
     def __init_data(self):
             self.X_train = xt
             self.y_train = yt
@@ -65,10 +81,14 @@ print_every = args.print_every
 add_h = False
 criterion = 'MSE'
 data = PDData()
-if net_type == 'LA':
-    net = ln.nn.LASympNet(data.dim, LAlayers, LAsublayers, activation)
-elif net_type == 'G':
-    net = ln.nn.GSympNet(data.dim, Glayers, Gwidth, activation)
+net = None
+if args.read_net:
+    net = torch.load(args.net_folder+"/model_best.pkl")
+else:
+    if net_type == 'LA':
+        net = ln.nn.LASympNet(data.dim, LAlayers, LAsublayers, activation)
+    elif net_type == 'G':
+        net = ln.nn.GSympNet(data.dim, Glayers, Gwidth, activation)
 args1 = {
     'data': data,
     'net': net,
@@ -84,25 +104,84 @@ args1 = {
     'device': device
 }
 ln.Brain.Init(**args1)
-ln.Brain.Run()
-ln.Brain.Restore()
-ln.Brain.Output()
+
+if args.train_net:
+    ln.Brain.Run()
+    ln.Brain.Restore()
+    ln.Brain.Output()
 
 ## Sampling parameters
 
-req_samples = 25000
+req_samples_hmc = 25000
+req_samples_nuts = 200000
+req_samples_lmc = 1000000
+
 hmc_len = 500
-burn_in = 1000
+burn_in = 100
+
+num_samples_to_plot = 25000
 
 ## Sampling
 
 # Langevin Monte Carlo
-samples, lmc_accept = LMC(net,req_samples)
-# Hamiltonian Monte Carlo
-samples, hmc_accept = HMC(net,req_samples,hmc_len = 500)
-# No-U-Turn Sampling with online error monitoring
-samples, nuts_err, nuts_ind, nuts_traj = NUTS(net,req_samples)
+lmc_samples, lmc_accept = LMC(net,req_samples_lmc)
+np.savetxt('lmc.csv', lmc_samples, delimiter=',')
 
 ## Compute effective sample size
-hnn_tf = tf.convert_to_tensor(samples[burn_in:req_samples,:])
+hnn_tf = tf.convert_to_tensor(lmc_samples[burn_in:req_samples_lmc,:])
 ess_hnn = np.array(tfp.mcmc.effective_sample_size(hnn_tf))
+## We need N+1 gradient evaluations in N leapfrog steps, here we have only one step so
+## we need 2 evaluations (hence the factor 2)
+print("ESS with LMC:", ess_hnn)
+print("ESS/(number of gradient evaluation) with LMC:", ess_hnn/(2*(req_samples_lmc-burn_in)))
+
+if args.plot_samples:
+    index = np.random.choice(lmc_samples.shape[0], min(num_samples_to_plot,req_samples_lmc), replace=False)
+    selected_samples = lmc_samples[index]
+    df = pd.DataFrame(selected_samples, columns = ["Parameter "+str(i) for i in range(len(selected_samples[0]))])
+    sns.pairplot(df, diag_kind = 'kde', plot_kws=dict(marker="+", s=4, linewidth=0.15))
+    plt.savefig('lmc.pdf')
+
+# Hamiltonian Monte Carlo
+hmc_samples, hmc_accept = HMC(net,req_samples_hmc,steps = hmc_len)
+np.savetxt('hmc.csv', hmc_samples, delimiter=',')
+
+## Compute effective sample size
+hnn_tf = tf.convert_to_tensor(hmc_samples[burn_in:req_samples_hmc,:])
+ess_hnn = np.array(tfp.mcmc.effective_sample_size(hnn_tf))
+## We need N+1 gradient evaluations in N leapfrog steps
+print("ESS with HMC:", ess_hnn)
+print("ESS/(number of gradient evaluation) with HMC:", ess_hnn/((req_samples_hmc-burn_in)*(hmc_len+1)))
+
+if args.plot_samples:
+    index = np.random.choice(hmc_samples.shape[0], min(num_samples_to_plot,req_samples_hmc), replace=False)
+    selected_samples = hmc_samples[index]
+    df = pd.DataFrame(selected_samples, columns = ["Parameter "+str(i) for i in range(len(selected_samples[0]))])
+    sns.pairplot(df, diag_kind = 'kde', plot_kws=dict(marker="+", s=4, linewidth=0.15))
+    plt.savefig('hmc.pdf')
+
+# # No-U-Turn Sampling with online error monitoring
+# nuts_samples, nuts_err, nuts_ind, nuts_traj, both_directions = NUTS(net,req_samples_nuts)
+# np.savetxt('nuts.csv', nuts_samples, delimiter=',')
+
+# ## Compute effective sample size
+# hnn_tf = tf.convert_to_tensor(nuts_samples[burn_in:req_samples_nuts,:])
+# ess_hnn = np.array(tfp.mcmc.effective_sample_size(hnn_tf))
+# ## We need N+1 gradient evaluations in N leapfrog steps if we go in one direction only,
+# ## but if the tree builds in both directions the number of gradient evaluations is N+2
+# num_grad_eval = 0
+# for depth_index in range(burn_in, len(nuts_traj)):
+#     if both_directions[depth_index]:
+#         num_grad_eval += pow(2,nuts_traj[depth_index]) + 2
+#     else:
+#         num_grad_eval += pow(2,nuts_traj[depth_index]) + 1
+
+# print("ESS with NUTS:", ess_hnn)
+# print("ESS/(number of gradient evaluation) with NUTS:", ess_hnn/num_grad_eval)
+
+# if args.plot_samples:
+#     index = np.random.choice(nuts_samples.shape[0], min(num_samples_to_plot,req_samples_nuts), replace=False)
+#     selected_samples = nuts_samples[index]
+#     df = pd.DataFrame(selected_samples, columns = ["Parameter "+str(i) for i in range(len(selected_samples[0]))])
+#     sns.pairplot(df, diag_kind = 'kde', plot_kws=dict(marker="+", s=4, linewidth=0.15))
+#     plt.savefig('nuts.pdf')
